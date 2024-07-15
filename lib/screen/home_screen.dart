@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:async';//
+import 'package:http/http.dart' as http;
+import 'dart:async';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({super.key});
@@ -9,56 +10,23 @@ class Homescreen extends StatefulWidget {
 }
 
 class _HomescreenState extends State<Homescreen> {
-  final List<Map<String, dynamic>> washingMachines = [
-    {
-      'name': 'เครื่องซักผ้า 1',
-      'status': 'ว่าง', 
-      'color': Colors.green
-      },
-    {
-      'name': 'เครื่องซักผ้า 2', 
-      'status': 'ว่าง', 
-      'color': Colors.green
-      },
-    {
-      'name': 'เครื่องซักผ้า 3',
-      'status': 'ไม่ว่าง',
-      'color': Colors.red,
-      'time': 2400
-    }, // 40 นาที
-    {
-      'name': 'เครื่องซักผ้า 4',
-      'status': 'ไม่ว่าง',
-      'color': Colors.red,
-      'time': 1200
-    }, // 20 นาที
+  final List<Machine> washingMachines = [
+    Machine(name: 'เครื่องซักผ้า 1', status: 'ว่าง', color: Colors.green),
+    Machine(name: 'เครื่องซักผ้า 2', status: 'ว่าง', color: Colors.green),
+    Machine(name: 'เครื่องซักผ้า 3', status: 'ไม่ว่าง', color: Colors.red, time: 70),
+    Machine(name: 'เครื่องซักผ้า 4', status: 'ไม่ว่าง', color: Colors.red, time: 1200),
   ];
 
-  final List<Map<String, dynamic>> dryers = [
-    {
-      'name': 'เครื่องอบผ้า 1',
-      'status': 'ไม่ว่าง',
-      'color': Colors.red,
-      'time': 1800
-    }, // 30 นาที
-    {
-      'name': 'เครื่องอบผ้า 2', 
-      'status': 'ว่าง', 
-      'color': Colors.green
-      },
-    {
-      'name': 'เครื่องอบผ้า 3', 
-      'status': 'ว่าง', 
-      'color': Colors.green
-      },
-    {
-      'name': 'เครื่องอบผ้า 4', 
-      'status': 'ไม่ว่าง', 
-      'color': Colors.red
-      },
+  final List<Machine> dryers = [
+    Machine(name: 'เครื่องอบผ้า 1', status: 'ไม่ว่าง', color: Colors.red, time: 500),
+    Machine(name: 'เครื่องอบผ้า 2', status: 'ว่าง', color: Colors.green),
+    Machine(name: 'เครื่องอบผ้า 3', status: 'ว่าง', color: Colors.green),
+    Machine(name: 'เครื่องอบผ้า 4', status: 'ไม่ว่าง', color: Colors.red, time: 2400),
   ];
 
   int selectedIndex = 0;
+  final String lineNotifyToken = '1cxBLTnVYr4QwtppQ6OGQr08td9HLrTv5pI3gJywhcL';
+  final Set<Machine> notifiedMachines = {};
 
   @override
   void initState() {
@@ -70,17 +38,57 @@ class _HomescreenState extends State<Homescreen> {
     Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         for (var machine in washingMachines) {
-          if (machine['time'] != null && machine['time'] > 0) {
-            machine['time']--;
+          if (machine.time != null && machine.time! > 0) {
+            machine.time = machine.time! - 1;
+            if (machine.time! < 60 && machine.time! > 0 && !notifiedMachines.contains(machine)) {
+              sendLineNotification(machine);
+              notifiedMachines.add(machine);
+            } else if (machine.time == 0) {
+              machine.status = 'ว่าง';
+              machine.color = Colors.green;
+              notifiedMachines.remove(machine);
+            }
           }
         }
         for (var dryer in dryers) {
-          if (dryer['time'] != null && dryer['time'] > 0) {
-            dryer['time']--;
+          if (dryer.time != null && dryer.time! > 0) {
+            dryer.time = dryer.time! - 1;
+            if (dryer.time! < 60 && dryer.time! > 0 && !notifiedMachines.contains(dryer)) {
+              sendLineNotification(dryer);
+              notifiedMachines.add(dryer);
+            } else if (dryer.time == 0) {
+              dryer.status = 'ว่าง';
+              dryer.color = Colors.green;
+              notifiedMachines.remove(dryer);
+            }
           }
         }
       });
     });
+  }
+
+  Future<void> sendLineNotification(Machine machine) async {
+    print('กำลังส่งการแจ้งเตือนสำหรับ ${machine.name} ด้วยโทเค็น: $lineNotifyToken');
+    try {
+      final response = await http.post(
+        Uri.parse('https://notify-api.line.me/api/notify'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Bearer $lineNotifyToken',
+        },
+        body: {
+          'message': 'เครื่อง ${machine.name} เหลือเวลาน้อยกว่า 1 นาที!',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        print('ส่งการแจ้งเตือนสำเร็จ: ${response.body}');
+      } else {
+        print('ส่งการแจ้งเตือนไม่สำเร็จ: ${response.body}');
+      }
+    } catch (e) {
+      print('เกิดข้อผิดพลาด: $e');
+    }
   }
 
   String formatTime(int seconds) {
@@ -93,12 +101,14 @@ class _HomescreenState extends State<Homescreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Washing and Drying App',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            )),
-        backgroundColor: Color.fromARGB(255, 63, 175, 128),
+        title: const Text(
+          'Washing and Drying App',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: const Color.fromARGB(255, 63, 175, 128),
       ),
       backgroundColor: Colors.grey[200],
       body: Column(
@@ -108,18 +118,18 @@ class _HomescreenState extends State<Homescreen> {
             child: ToggleButtons(
               borderRadius: BorderRadius.circular(10),
               borderColor: Colors.grey,
-              selectedBorderColor: Color.fromARGB(255, 63, 175, 128),
+              selectedBorderColor: const Color.fromARGB(255, 63, 175, 128),
               selectedColor: Colors.white,
-              fillColor: Color.fromARGB(255, 63, 175, 128),
+              fillColor: const Color.fromARGB(255, 63, 175, 128),
               color: Colors.black,
-              constraints: BoxConstraints(minHeight: 40.0, minWidth: 120.0),
+              constraints: const BoxConstraints(minHeight: 40.0, minWidth: 120.0),
               isSelected: [selectedIndex == 0, selectedIndex == 1],
               onPressed: (int index) {
                 setState(() {
                   selectedIndex = index;
                 });
               },
-              children: <Widget>[
+              children: const <Widget>[
                 Text('เครื่องซักผ้า', style: TextStyle(fontSize: 16)),
                 Text('เครื่องอบผ้า', style: TextStyle(fontSize: 16)),
               ],
@@ -131,23 +141,23 @@ class _HomescreenState extends State<Homescreen> {
                 if (selectedIndex == 0)
                   _buildMachineSection("เครื่องซักผ้า", washingMachines, Icons.local_laundry_service),
                 if (selectedIndex == 1)
-                  _buildMachineSection("เครื่องอบผ้า", dryers, Icons.local_laundry_service,),
+                  _buildMachineSection("เครื่องอบผ้า", dryers, Icons.local_laundry_service),
               ],
             ),
           ),
         ],
       ),
     );
-  }//
+  }
 
-  Widget _buildMachineSection(String title, List<Map<String, dynamic>> machines, IconData icon) {
+  Widget _buildMachineSection(String title, List<Machine> machines, IconData icon) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.all(10),
           child: Text(title,
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         ),
         ListView.builder(
           shrinkWrap: true,
@@ -162,26 +172,24 @@ class _HomescreenState extends State<Homescreen> {
                 child: Row(
                   children: [
                     Icon(icon, size: 100),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(machines[index]['name'],
-                              style: TextStyle(
+                          Text(machines[index].name,
+                              style: const TextStyle(
                                   fontSize: 18, fontWeight: FontWeight.bold)),
                           Row(
                             children: [
-                              Icon(Icons.circle,
-                                  color: machines[index]['color']),
-                              SizedBox(width: 5),
-                              Text(machines[index]['status']),
+                              Icon(Icons.circle, color: machines[index].color),
+                              const SizedBox(width: 5),
+                              Text(machines[index].status),
                             ],
                           ),
-                          if (machines[index]['time'] != null &&
-                              machines[index]['time'] > 0)
-                            Text(
-                                'เหลือเวลา: ${formatTime(machines[index]['time'])}'),
+                          if (machines[index].time != null &&
+                              machines[index].time! > 0)
+                            Text('เหลือเวลา: ${formatTime(machines[index].time!)}'),
                         ],
                       ),
                     ),
@@ -194,4 +202,18 @@ class _HomescreenState extends State<Homescreen> {
       ],
     );
   }
+}
+
+class Machine {
+  final String name;
+  String status;
+  Color color;
+  int? time;
+
+  Machine({
+    required this.name,
+    required this.status,
+    required this.color,
+    this.time,
+  });
 }

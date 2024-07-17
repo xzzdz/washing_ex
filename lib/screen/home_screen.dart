@@ -37,34 +37,26 @@ class _HomescreenState extends State<Homescreen> {
   void startCountdown() {
     Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
-        for (var machine in washingMachines) {
-          if (machine.time != null && machine.time! > 0) {
-            machine.time = machine.time! - 1;
-            if (machine.time! < 60 && machine.time! > 0 && !notifiedMachines.contains(machine)) {
-              sendLineNotification(machine);
-              notifiedMachines.add(machine);
-            } else if (machine.time == 0) {
-              machine.status = 'ว่าง';
-              machine.color = Colors.green;
-              notifiedMachines.remove(machine);
-            }
-          }
-        }
-        for (var dryer in dryers) {
-          if (dryer.time != null && dryer.time! > 0) {
-            dryer.time = dryer.time! - 1;
-            if (dryer.time! < 60 && dryer.time! > 0 && !notifiedMachines.contains(dryer)) {
-              sendLineNotification(dryer);
-              notifiedMachines.add(dryer);
-            } else if (dryer.time == 0) {
-              dryer.status = 'ว่าง';
-              dryer.color = Colors.green;
-              notifiedMachines.remove(dryer);
-            }
-          }
-        }
+        updateMachineTimers(washingMachines);
+        updateMachineTimers(dryers);
       });
     });
+  }
+
+  void updateMachineTimers(List<Machine> machines) {
+    for (var machine in machines) {
+      if (machine.time != null && machine.time! > 0) {
+        machine.time = machine.time! - 1;
+        if (machine.time! < 60 && machine.time! > 0 && !notifiedMachines.contains(machine)) {
+          sendLineNotification(machine);
+          notifiedMachines.add(machine);
+        } else if (machine.time == 0) {
+          machine.status = 'ว่าง';
+          machine.color = Colors.green;
+          notifiedMachines.remove(machine);
+        }
+      }
+    }
   }
 
   Future<void> sendLineNotification(Machine machine) async {
@@ -97,6 +89,12 @@ class _HomescreenState extends State<Homescreen> {
     return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
+  void onTabTapped(int index) {
+    setState(() {
+      selectedIndex = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -113,28 +111,6 @@ class _HomescreenState extends State<Homescreen> {
       backgroundColor: Colors.grey[200],
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: ToggleButtons(
-              borderRadius: BorderRadius.circular(10),
-              borderColor: Colors.grey,
-              selectedBorderColor: const Color.fromARGB(255, 63, 175, 128),
-              selectedColor: Colors.white,
-              fillColor: const Color.fromARGB(255, 63, 175, 128),
-              color: Colors.black,
-              constraints: const BoxConstraints(minHeight: 40.0, minWidth: 120.0),
-              isSelected: [selectedIndex == 0, selectedIndex == 1],
-              onPressed: (int index) {
-                setState(() {
-                  selectedIndex = index;
-                });
-              },
-              children: const <Widget>[
-                Text('เครื่องซักผ้า', style: TextStyle(fontSize: 16)),
-                Text('เครื่องอบผ้า', style: TextStyle(fontSize: 16)),
-              ],
-            ),
-          ),
           Expanded(
             child: ListView(
               children: [
@@ -147,6 +123,20 @@ class _HomescreenState extends State<Homescreen> {
           ),
         ],
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        onTap: onTabTapped,
+        currentIndex: selectedIndex,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.local_laundry_service),
+            label: 'เครื่องซักผ้า',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.local_laundry_service),
+            label: 'เครื่องอบผ้า',
+          ),
+        ],
+      ),
     );
   }
 
@@ -156,50 +146,50 @@ class _HomescreenState extends State<Homescreen> {
       children: [
         Padding(
           padding: const EdgeInsets.all(10),
-          child: Text(title,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          child: Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         ),
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: machines.length,
           itemBuilder: (context, index) {
-            return Card(
-              margin: const EdgeInsets.all(10),
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Icon(icon, size: 100),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(machines[index].name,
-                              style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold)),
-                          Row(
-                            children: [
-                              Icon(Icons.circle, color: machines[index].color),
-                              const SizedBox(width: 5),
-                              Text(machines[index].status),
-                            ],
-                          ),
-                          if (machines[index].time != null &&
-                              machines[index].time! > 0)
-                            Text('เหลือเวลา: ${formatTime(machines[index].time!)}'),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
+            return _buildMachineCard(machines[index], icon);
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildMachineCard(Machine machine, IconData icon) {
+    return Card(
+      margin: const EdgeInsets.all(10),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Icon(icon, size: 100),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(machine.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      Icon(Icons.circle, color: machine.color),
+                      const SizedBox(width: 5),
+                      Text(machine.status),
+                    ],
+                  ),
+                  if (machine.time != null && machine.time! > 0)
+                    Text('เหลือเวลา: ${formatTime(machine.time!)}'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

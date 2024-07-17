@@ -25,7 +25,7 @@ class _HomescreenState extends State<Homescreen> {
   ];
 
   int selectedIndex = 0;
-  final String lineNotifyToken = '1cxBLTnVYr4QwtppQ6OGQr08td9HLrTv5pI3gJywhcL';
+  final String lineNotifyToken = 'mn1ol4axwYxkZfT3foNpG74txt7TBNnzbV9td4BKxC6';
   final Set<Machine> notifiedMachines = {};
 
   @override
@@ -77,7 +77,7 @@ class _HomescreenState extends State<Homescreen> {
           'Authorization': 'Bearer $lineNotifyToken',
         },
         body: {
-          'message': 'เครื่อง ${machine.name} เหลือเวลาน้อยกว่า 1 นาที!',
+          'message': '${machine.name} เหลือเวลาน้อยกว่า 1 นาที!',
         },
       );
 
